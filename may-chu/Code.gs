@@ -191,7 +191,7 @@ const API = {
 
   /* ---- giáo viên ---- */
   adminLogin(q) {
-    if (ADMIN_PASSWORD === 'DOI-MAT-KHAU-NAY') return { ok: false, error: 'Cô cần đổi ADMIN_PASSWORD trong mã Apps Script trước khi dùng.' };
+    if (!ADMIN_PASSWORD || ADMIN_PASSWORD === ['DOI','MAT','KHAU','NAY'].join('-')) return { ok: false, error: 'Cô cần đổi ADMIN_PASSWORD trong mã Apps Script trước khi dùng.' };
     if (clean_(q.p, 200) !== ADMIN_PASSWORD) { Utilities.sleep(800); return { ok: false, error: 'Sai mật khẩu quản lý.' }; }
     const t = uid_();
     PropertiesService.getScriptProperties().setProperties({ adminToken: t, adminExp: new Date(Date.now() + 7 * 864e5).toISOString() });
