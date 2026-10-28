@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Quản lý lớp · Sổ luyện HSK 2</title>
+<title>Quản lý lớp · Sổ luyện HSK</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%2318222B%22/%3E%3Ctext x=%2232%22 y=%2246%22 font-size=%2238%22 text-anchor=%22middle%22 fill=%22white%22%3E%E5%B8%88%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -123,7 +123,7 @@ textarea{width:100%;min-height:150px;resize:vertical}
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <div class="brand"><span class="seal">师</span><span><b>Quản lý lớp</b><small>Sổ luyện HSK 2 · Giáo viên</small></span></div>
+  <div class="brand"><span class="seal">师</span><span><b>Quản lý lớp</b><small>Sổ luyện HSK 1 · HSK 2 · Giáo viên</small></span></div>
   <span class="sp"></span>
   <button class="tbtn" id="refresh" type="button" hidden>↻ Cập nhật</button>
   <a class="tbtn" href="./" style="text-decoration:none">Trang học sinh</a>
@@ -139,8 +139,13 @@ const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelecto
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ls={get(k){try{return localStorage.getItem("hsk2admin:"+k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem("hsk2admin:"+k):localStorage.setItem("hsk2admin:"+k,v)}catch(e){}}};
 let TOKEN=ls.get("token"),DATA=null,TAB=ls.get("tab")||"progress",CLS="",SEL=null,LAST_CREATED=[];
-const PARTS=[["l1","Nghe 1–5"],["l2","Nghe 6–10"],["l3","Nghe 11–15"],["r1","Đọc 16–20"],["r2","Đọc 21–25"],["r3","Đọc 26–30"],["r4","Đọc 31–35"],["ph","Ngữ âm"],["hz1","Chữ Hán · bộ"],["hz2","Chữ Hán · nghĩa"],["dict","Chính tả (%)"]];
-const CORE=["l1","l2","l3","r1","r2","r3","r4","ph","hz1","hz2"];
+let BOOK=ls.get("book")||"hsk2";
+const PARTS2=[["l1","Nghe 1–5"],["l2","Nghe 6–10"],["l3","Nghe 11–15"],["r1","Đọc 16–20"],["r2","Đọc 21–25"],["r3","Đọc 26–30"],["r4","Đọc 31–35"],["ph","Ngữ âm"],["hz1","Chữ Hán · bộ"],["hz2","Chữ Hán · nghĩa"],["dict","Chính tả (%)"]];
+const PARTS1=[["l1","Nghe P1"],["l2","Nghe P2"],["l3","Nghe P3"],["r1","Đọc P1"],["r2","Đọc P2"],["r3","Đọc P3"],["ph1","Ngữ âm 1"],["ph2","Ngữ âm 2"],["hz","Chữ Hán"],["dict","Chính tả (%)"]];
+const PARTS1P=[["read","Nghe & đọc theo"],["pw","Ghép hình–từ"],["ini","Thanh mẫu"],["fin","Vận mẫu"],["tone","Thanh điệu"],["dlg","Hội thoại"],["hz","Chữ Hán"]];
+const partsFor=l=>BOOK==="hsk1"?(l<=2?PARTS1P:PARTS1):PARTS2;
+const coreFor=l=>partsFor(l).map(p=>p[0]).filter(k=>k!=="dict");
+const bookLabel=b=>(b||"hsk2")==="hsk1"?"HSK 1":"HSK 2";
 const LESSONS=Array.from({length:15},(_,i)=>i+1);
 function fmt(t){if(!t)return "—";const d=new Date(t);if(isNaN(d))return "—";return d.toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
 function ago(t){if(!t)return "chưa vào";const d=(Date.now()-new Date(t))/864e5;return d<1?"hôm nay":d<2?"hôm qua":Math.floor(d)+" ngày trước"}
@@ -166,8 +171,8 @@ async function load(){$("#refresh").hidden=$("#logout").hidden=false;
   if(!DATA)$("#app").innerHTML=`<p class="empty" style="padding:40px 0">Đang tải dữ liệu lớp…</p>`;
   try{const j=await api("adminOverview");if(!j.ok)return;DATA=j;render()}catch(e){$("#app").innerHTML=`<p class="err" style="padding:40px 0">Không tải được dữ liệu: ${esc(e.message)}. Bấm ↻ Cập nhật để thử lại.</p>`}}
 
-function lessonStat(u,l){const p=(DATA.progress[u]||{})["hsk2:"+l]||{};let done=0,s=0,t=0;
-  CORE.forEach(k=>{if(p[k]){done++;if(k[0]==="l"||k[0]==="r"){s+=+p[k][0];t+=+p[k][1]}}});return {done,pct:Math.round(done/CORE.length*100),score:t?Math.round(s/t*100):null,p}}
+function lessonStat(u,l){const p=(DATA.progress[u]||{})[BOOK+":"+l]||{};let done=0,s=0,t=0;const CORE=coreFor(l);
+  CORE.forEach(k=>{if(p[k]){done++;if(/^[lr]\d$/.test(k)){s+=+p[k][0];t+=+p[k][1]}}});return {done,n:CORE.length,pct:Math.round(done/CORE.length*100),score:t?Math.round(s/t*100):null,p}}
 function classes(){return [...new Set(DATA.students.map(s=>s.cls).filter(Boolean))].sort()}
 const given=n=>{const w=String(n).trim().split(/\s+/);return w[w.length-1]+" "+n};
 function students(){return DATA.students.filter(s=>!CLS||s.cls===CLS).sort((a,b)=>given(a.name).localeCompare(given(b.name),"vi"))}
@@ -191,21 +196,21 @@ function clsFilter(){const c=classes();return c.length?`<select id="cls" aria-la
 function wireCls(){const s=$("#cls");if(s)s.onchange=()=>{CLS=s.value;render()}}
 
 function tabProgress(){const S=students();
-  $("#tab").innerHTML=`<div class="panel"><div class="ph"><h2>Tiến độ từng bài</h2>${clsFilter()}<button class="btn ghost sm" type="button" id="csv">Tải bảng điểm (CSV)</button></div>
+  $("#tab").innerHTML=`<div class="panel"><div class="ph"><h2>Tiến độ từng bài</h2><select id="book" aria-label="Chọn sách"><option value="hsk2" ${BOOK==="hsk2"?"selected":""}>Sách HSK 2</option><option value="hsk1" ${BOOK==="hsk1"?"selected":""}>Sách HSK 1</option></select>${clsFilter()}<button class="btn ghost sm" type="button" id="csv">Tải bảng điểm (CSV)</button></div>
     ${S.length?`<div class="scroll"><table class="grid"><thead><tr><th class="n">Học sinh</th>${LESSONS.map(l=>`<th class="l">Bài ${l}</th>`).join("")}<th>Xong</th><th>Vào lần cuối</th></tr></thead><tbody>
     ${S.map(s=>{let full=0;const cells=LESSONS.map(l=>{const x=lessonStat(s.u,l);if(x.pct===100)full++;const c=x.pct===0?"":x.pct===100?"p3":x.pct>=50?"p2":"p1";
-      return `<td class="l"><button type="button" class="cell ${c}" data-u="${esc(s.u)}" data-l="${l}" title="${esc(s.name)} · Bài ${l}: ${x.done}/10 phần${x.score!=null?", nghe+đọc đúng "+x.score+"%":""}">${x.pct?(x.score!=null?x.score+"%":x.done+"/10"):"·"}</button></td>`}).join("");
+      return `<td class="l"><button type="button" class="cell ${c}" data-u="${esc(s.u)}" data-l="${l}" title="${esc(s.name)} · Bài ${l}: ${x.done}/${x.n} phần${x.score!=null?", nghe+đọc đúng "+x.score+"%":""}">${x.pct?(x.score!=null?x.score+"%":x.done+"/"+x.n):"·"}</button></td>`}).join("");
       return `<tr><td class="n nm"><b>${esc(s.name)}</b><small>${esc(s.u)}${s.cls?" · "+esc(s.cls):""}</small></td>${cells}<td class="tot">${full}/15</td><td>${ago(s.lastSeen)}</td></tr>`}).join("")}
     </tbody></table></div>
-    <div class="legend"><span><i style="background:var(--c0)"></i>chưa làm</span><span><i style="background:var(--c1)"></i>làm dưới một nửa</span><span><i style="background:var(--c2)"></i>làm từ một nửa</span><span><i style="background:var(--c3)"></i>xong cả 10 phần</span><span>Số trong ô = % đúng ở phần thi nghe + đọc (lấy lần làm tốt nhất). Bấm vào ô để xem chi tiết.</span></div>
+    <div class="legend"><span><i style="background:var(--c0)"></i>chưa làm</span><span><i style="background:var(--c1)"></i>làm dưới một nửa</span><span><i style="background:var(--c2)"></i>làm từ một nửa</span><span><i style="background:var(--c3)"></i>xong tất cả các phần</span><span>Số trong ô = % đúng ở phần thi nghe + đọc (lấy lần làm tốt nhất). Bấm vào ô để xem chi tiết.</span></div>
     <div id="detail"></div>`:`<p class="empty">Chưa có học sinh. Vào thẻ “Học sinh” để tạo tài khoản.</p>`}</div>`;
-  wireCls();$$(".cell").forEach(b=>b.onclick=()=>{SEL=[b.dataset.u,+b.dataset.l];showDetail()});if(SEL)showDetail();
-  const c=$("#csv");if(c)c.onclick=()=>{const rows=[["Tên","Tên đăng nhập","Lớp",...LESSONS.flatMap(l=>PARTS.map(p=>`B${l} ${p[1]}`))]];
-    S.forEach(s=>rows.push([s.name,s.u,s.cls||"",...LESSONS.flatMap(l=>{const p=lessonStat(s.u,l).p;return PARTS.map(([k])=>p[k]?`${p[k][0]}/${p[k][1]}`:"")})]));
+  wireCls();$("#book").onchange=e=>{BOOK=e.target.value;ls.set("book",BOOK);SEL=null;render()};$$(".cell").forEach(b=>b.onclick=()=>{SEL=[b.dataset.u,+b.dataset.l];showDetail()});if(SEL)showDetail();
+  const c=$("#csv");if(c)c.onclick=()=>{const rows=[["Tên","Tên đăng nhập","Lớp",...LESSONS.flatMap(l=>partsFor(l).map(p=>`B${l} ${p[1]}`))]];
+    S.forEach(s=>rows.push([s.name,s.u,s.cls||"",...LESSONS.flatMap(l=>{const p=lessonStat(s.u,l).p;return partsFor(l).map(([k])=>p[k]?`${p[k][0]}/${p[k][1]}`:"")})]));
     const csv="﻿"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="bang-diem-hsk2.csv";a.click()}}
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="bang-diem-"+BOOK+".csv";a.click()}}
 function showDetail(){const box=$("#detail");if(!box||!SEL)return;const [u,l]=SEL;const s=DATA.students.find(x=>x.u===u);if(!s)return;const p=lessonStat(u,l).p;
-  box.innerHTML=`<div class="detail"><h3>${esc(s.name)} · Bài ${l}</h3><div class="parts">${PARTS.map(([k,n])=>{const v=p[k];if(!v)return `<div class="part none"><b>${n}</b><span>chưa làm</span></div>`;
+  box.innerHTML=`<div class="detail"><h3>${esc(s.name)} · ${bookLabel(BOOK)} · Bài ${l}</h3><div class="parts">${partsFor(l).map(([k,n])=>{const v=p[k];if(!v)return `<div class="part none"><b>${n}</b><span>chưa làm</span></div>`;
     const ok=+v[0]===+v[1];return `<div class="part ${ok?"ok":"bad"}"><b>${n}</b><span>${k==="dict"?v[0]+"%":v[0]+"/"+v[1]}</span><div class="note">${v[3]||1} lần · ${fmt(v[2])}</div></div>`}).join("")}</div></div>`}
 
 let ROWS=null;
@@ -290,7 +295,7 @@ function showCreds(title){const box=$("#creds");if(!box||!LAST_CREATED.length)re
 
 function tabQuestions(){const Q=DATA.questions.slice().sort((a,b)=>(!!a.reply-!!b.reply)||String(b.time).localeCompare(String(a.time)));
   $("#tab").innerHTML=`<div class="panel"><div class="ph"><h2>Câu hỏi của học sinh</h2><span class="note">Chưa trả lời ở trên. Học sinh thấy câu trả lời trong mục Hỏi đáp.</span></div>
-    <div class="list">${Q.length?Q.map(q=>`<div class="item ${q.reply?"":"todo"}"><div class="meta"><b>${esc(q.name)}</b> · ${q.lesson?"Bài "+esc(q.lesson):"Chung"}${q.part?" · "+esc(q.part):""} · ${fmt(q.time)}</div>
+    <div class="list">${Q.length?Q.map(q=>`<div class="item ${q.reply?"":"todo"}"><div class="meta"><b>${esc(q.name)}</b> · ${q.lesson?bookLabel(q.book)+" · Bài "+esc(q.lesson):"Chung"}${q.part?" · "+esc(q.part):""} · ${fmt(q.time)}</div>
       <div class="msg">${esc(q.message)}</div><div class="row"><textarea id="r-${q.id}" placeholder="Trả lời học sinh…">${esc(q.reply||"")}</textarea></div>
       <div class="row"><button class="btn jade sm" type="button" data-rep="${q.id}">${q.reply?"Cập nhật trả lời":"Gửi trả lời"}</button><span class="saved" id="s-${q.id}"></span></div></div>`).join(""):`<p class="empty">Chưa có câu hỏi nào.</p>`}</div></div>`;
   $$("[data-rep]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rep,v=$("#r-"+id).value.trim();b.disabled=true;
@@ -298,7 +303,7 @@ function tabQuestions(){const Q=DATA.questions.slice().sort((a,b)=>(!!a.reply-!!
 
 function tabRecords(){const R=DATA.records.slice().sort((a,b)=>((a.score!==""&&a.score!=null)-(b.score!==""&&b.score!=null))||String(b.time).localeCompare(String(a.time)));
   $("#tab").innerHTML=`<div class="panel"><div class="ph"><h2>Bài ghi âm đọc theo</h2><span class="note">File nằm trong thư mục “Sổ luyện HSK – Bài ghi âm” trên Google Drive của cô.</span></div>
-    <div class="list">${R.length?R.map(r=>{const done=r.score!==""&&r.score!=null;return `<div class="item ${done?"":"todo"}"><div class="meta"><b>${esc(r.name)}</b> · Bài ${esc(r.lesson)} · ${fmt(r.time)}</div>
+    <div class="list">${R.length?R.map(r=>{const done=r.score!==""&&r.score!=null;return `<div class="item ${done?"":"todo"}"><div class="meta"><b>${esc(r.name)}</b> · ${bookLabel(r.book)} · Bài ${esc(r.lesson)} · ${fmt(r.time)}</div>
       <div class="row"><a class="btn ghost sm" href="${esc(r.url)}" target="_blank" rel="noopener">▶ Nghe trên Google Drive</a></div>
       <div class="row"><label class="note">Điểm <input class="sc" id="g-${r.id}" value="${esc(r.score??"")}" placeholder="vd 8/10"></label><input class="cm" id="c-${r.id}" value="${esc(r.comment||"")}" placeholder="Nhận xét cho em (thanh điệu, chữ nào cần sửa…)">
         <button class="btn jade sm" type="button" data-g="${r.id}">${done?"Cập nhật":"Lưu điểm"}</button><span class="saved" id="gs-${r.id}"></span></div></div>`}).join(""):`<p class="empty">Chưa có bài ghi âm nào.</p>`}</div></div>`;

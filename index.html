@@ -382,6 +382,9 @@ body.hasdock{padding-bottom:70px}
 .qitem textarea{width:100%;min-height:60px;margin-top:8px}
 .empty{font-size:14px;color:var(--muted);padding:6px 0}
 footer{color:var(--muted);font-size:12.5px;padding-block:20px 40px}
+.books{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card2);flex:none}
+.books a{padding:6px 12px;font-weight:700;font-size:13px;text-decoration:none;color:var(--ink)}
+.books a[aria-current="page"]{background:var(--seal);color:#fff}
 </style>
 
 </head>
@@ -390,6 +393,7 @@ footer{color:var(--muted);font-size:12.5px;padding-block:20px 40px}
   <button class="brand" id="homeBtn" type="button" aria-label="Về trang chủ">
     <span class="seal">汉</span><span><b>Sổ luyện HSK 2</b><small>Giáo trình chuẩn · Sách bài tập</small></span>
   </button>
+  <nav class="books" aria-label="Chọn sách"><a href="hsk1.html">HSK 1</a><a href="index.html" aria-current="page">HSK 2</a></nav>
   <span class="sp"></span>
   <select id="lessonSel" aria-label="Chọn bài"></select>
   <button class="toggle" id="pyBtn" type="button" aria-pressed="false">Hiện pinyin</button>
@@ -729,7 +733,7 @@ function recPanel(d){
     <div class="recrow"><label class="btn seal recbtn">🎙 Ghi âm<input type="file" accept="audio/*" capture="user" id="recIn"></label>
       <audio id="recAud" controls hidden></audio><button class="btn jade" type="button" id="recSend" hidden>Gửi cho cô</button></div>
     <div class="note" id="recName"></div><div class="recs" id="recList"></div></div>`}
-function renderRecs(d){const box=$("#recList");if(!box)return;const mine=(ME.records||[]).filter(r=>+r.lesson===d.id);
+function renderRecs(d){const box=$("#recList");if(!box)return;const mine=(ME.records||[]).filter(r=>(r.book||"hsk2")==="hsk2"&&+r.lesson===d.id);
   box.innerHTML=mine.length?mine.map(r=>`<div class="ri">Đã gửi ${fmtTime(r.time)} · ${r.score!==""&&r.score!=null?`<b>Điểm: ${esc(r.score)}</b>${r.comment?" · "+esc(r.comment):""}`:"Cô chưa chấm"}</div>`).join(""):""}
 function wireRec(d){const inp=$("#recIn");if(!inp)return;renderRecs(d);
   let url=null,file=null;
@@ -834,8 +838,8 @@ function wireAsk(d){
     catch(e){t.textContent="Chưa gửi được: "+(e.message||"lỗi mạng")}finally{b.disabled=false}};
 }
 function renderQA(d){const box=$("#qaList");if(!box)return;
-  let qs=(ME.questions||[]).slice().reverse();if(d)qs=qs.filter(q=>!q.lesson||+q.lesson===d.id);
-  box.innerHTML=qs.length?qs.map(q=>`<div class="qitem"><div class="meta">${q.lesson?"Bài "+esc(q.lesson):"Chung"}${q.part?" · "+esc(q.part):""} · ${fmtTime(q.time)}</div>
+  let qs=(ME.questions||[]).slice().reverse();if(d)qs=qs.filter(q=>!q.lesson||((q.book||"hsk2")==="hsk2"&&+q.lesson===d.id));
+  box.innerHTML=qs.length?qs.map(q=>`<div class="qitem"><div class="meta">${q.lesson?((q.book||"hsk2")==="hsk2"?"":"HSK 1 · ")+"Bài "+esc(q.lesson):"Chung"}${q.part?" · "+esc(q.part):""} · ${fmtTime(q.time)}</div>
     <div>${esc(q.message||"")}</div>${q.reply?`<div class="rep"><b>Cô trả lời:</b> ${esc(q.reply)}</div>`:`<div class="meta" style="margin-top:6px">Cô chưa trả lời</div>`}</div>`).join("")
     :`<p class="empty">Em chưa gửi câu hỏi nào${d?" cho bài này":""}.</p>`;
   const r=$("#qaRefresh");if(r)r.onclick=async()=>{r.disabled=true;await refreshMe();r.disabled=false};
@@ -882,7 +886,7 @@ $("#uPw").onclick=()=>{$("#upop").hidden=true;const m=document.createElement("di
     if(!j.ok)throw new Error(j.error);m.querySelector(".lbox").innerHTML=`<h1>Xong!</h1><p class="okmsg">Đã đổi mật khẩu. Lần sau em đăng nhập bằng mật khẩu mới.</p><button class="btn seal" type="button">Đóng</button>`;m.querySelector("button").onclick=()=>m.remove()}
     catch(err){$("#pwErr").textContent=err.message||"Lỗi mạng, thử lại nhé."}}};
 function logout(msg){stopExam();AUTH=null;ME={questions:[],records:[]};progress={};["auth","progress","pending"].forEach(k=>{try{localStorage.removeItem("hsk2:"+k)}catch(e){}});
-  Object.keys(localStorage||{}).forEach(k=>{if(/^hsk2:(exam|best):/.test(k))try{localStorage.removeItem(k)}catch(e){}});showUser();showLogin(msg)}
+  Object.keys(localStorage||{}).forEach(k=>{if(/^hsk2:(exam|best):/.test(k)||/^hsk1:/.test(k))try{localStorage.removeItem(k)}catch(e){}});showUser();showLogin(msg)}
 function showLogin(msg){location.hash="";$("#lessonSel").hidden=true;
   app.innerHTML=`<section class="wrap login"><form class="lbox" id="lgForm" autocomplete="on"><span class="seal2" aria-hidden="true">汉</span><h1>Đăng nhập Sổ luyện HSK 2</h1>
     <p class="note" style="margin:0">Tên đăng nhập và mật khẩu do cô giáo cấp cho em.</p>
