@@ -216,7 +216,7 @@ const U_OK=/^[a-z0-9][a-z0-9._-]{2,29}$/;
 function rowErrors(){const taken=new Set(DATA.students.map(s=>String(s.u).toLowerCase())),seen={};
   return ROWS.map(r=>{if(!r.name.trim())return (r.u||r.p||r.cls)?"Thiếu họ tên":"";const u=(r.u.trim()||"").toLowerCase();
     if(u){if(!U_OK.test(u))return "Tên đăng nhập chỉ dùng chữ không dấu, số, . - _ (3–30 ký tự)";if(taken.has(u))return "Tên đăng nhập đã có người dùng";if(seen[u])return "Trùng tên đăng nhập với dòng khác";seen[u]=1}
-    if(r.p&&r.p.length<4)return "Mật khẩu cần ít nhất 4 ký tự";return ""})}
+    if(r.p&&r.p.trim().length<4)return "Mật khẩu cần ít nhất 4 ký tự";return ""})}
 function tabStudents(){const S=students();if(!ROWS)ROWS=Array.from({length:5},blankRow);
   $("#tab").innerHTML=`<div class="stack">
     <div class="panel"><div class="ph"><h2>Tạo tài khoản</h2></div>
@@ -237,7 +237,7 @@ function tabStudents(){const S=students();if(!ROWS)ROWS=Array.from({length:5},bl
     if(!list.length){$("#cmsg").textContent="Cô nhập họ tên học sinh trước nhé.";return}
     if(errs.some(Boolean)){$("#cmsg").textContent="Còn dòng chưa hợp lệ (tô đỏ), cô sửa giúp nhé.";markErrors();return}
     const b=$("#create");b.disabled=true;$("#cmsg").textContent="Đang tạo…";
-    try{const j=await api("adminCreate",{students:list.map(r=>({name:r.name.trim(),cls:r.cls.trim(),u:r.u.trim().toLowerCase(),p:r.p}))});if(!j.ok)throw new Error(j.error);
+    try{const j=await api("adminCreate",{students:list.map(r=>({name:r.name.trim(),cls:r.cls.trim(),u:r.u.trim().toLowerCase(),p:r.p.trim()}))});if(!j.ok)throw new Error(j.error);
       LAST_CREATED=j.created;j.created.forEach(c=>DATA.students.push({u:c.u,name:c.name,cls:c.cls,lastSeen:""}));
       const bad=new Set((j.errors||[]).map(e=>e.line-1));ROWS=list.filter((r,k)=>bad.has(k)).map(({i,...r})=>r);if(!ROWS.length)ROWS=Array.from({length:5},blankRow);
       render();if(j.errors&&j.errors.length){$("#cerr").innerHTML=`<div class="cerr"><b>Chưa tạo được ${j.errors.length} em</b> (vẫn còn trong bảng để cô sửa):<ul>${j.errors.map(e=>`<li>${esc(e.error)}</li>`).join("")}</ul></div>`}}

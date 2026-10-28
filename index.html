@@ -355,6 +355,7 @@ body.hasdock{padding-bottom:70px}
 .lbox label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;color:var(--muted)}
 .lbox input{font-size:16px;padding:11px 12px}
 .lbox .btn{padding:12px;font-size:16px}
+.pwbox{position:relative;display:block}.pwbox input{width:100%;padding-right:64px}.eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--card2);border-radius:8px;padding:5px 9px;font-weight:700;font-size:12.5px;color:var(--sky)}
 .err{color:var(--seal);font-weight:600;font-size:14px;min-height:1.2em}
 .okmsg{color:var(--jade);font-weight:600;font-size:14px}
 .modal{position:fixed;inset:0;background:rgba(10,16,14,.55);display:grid;place-items:center;z-index:60;padding:16px}
@@ -885,13 +886,15 @@ function logout(msg){stopExam();AUTH=null;ME={questions:[],records:[]};progress=
 function showLogin(msg){location.hash="";$("#lessonSel").hidden=true;
   app.innerHTML=`<section class="wrap login"><form class="lbox" id="lgForm" autocomplete="on"><span class="seal2" aria-hidden="true">汉</span><h1>Đăng nhập Sổ luyện HSK 2</h1>
     <p class="note" style="margin:0">Tên đăng nhập và mật khẩu do cô giáo cấp cho em.</p>
-    <label>Tên đăng nhập<input id="lgU" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
-    <label>Mật khẩu<input id="lgP" type="password" autocomplete="current-password" inputmode="text" required></label>
+    <label>Tên đăng nhập<input id="lgU" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required placeholder="vd: nhat_tra"></label>
+    <label>Mật khẩu<span class="pwbox"><input id="lgP" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required><button type="button" class="eye" id="lgEye" aria-label="Hiện mật khẩu">Hiện</button></span></label>
     <div class="err" id="lgErr">${msg?esc(msg):""}</div><button class="btn seal" type="submit" id="lgBtn">Đăng nhập</button>
     ${API_URL?"":`<p class="err">Trang chưa được nối với máy chủ. Cô giáo cần điền địa chỉ máy chủ vào file config.js.</p>`}</form></section>`;
   $("#lgU").focus();
+  $("#lgEye").onclick=()=>{const i=$("#lgP"),show=i.type==="password";i.type=show?"text":"password";$("#lgEye").textContent=show?"Ẩn":"Hiện";$("#lgEye").setAttribute("aria-label",show?"Ẩn mật khẩu":"Hiện mật khẩu")};
   $("#lgForm").onsubmit=async e=>{e.preventDefault();const b=$("#lgBtn");b.disabled=true;$("#lgErr").textContent="Đang đăng nhập…";
-    try{const j=await api("login",{u:$("#lgU").value.trim(),p:$("#lgP").value});if(!j.ok)throw new Error(j.error);
+    const cleanU=$("#lgU").value.replace(/^\s*(tên đăng nhập|ten dang nhap)\s*:?/i,"").replace(/\s+/g,"").toLowerCase(),cleanP=$("#lgP").value.replace(/^\s*(mật khẩu|mat khau)\s*:?/i,"").trim();
+    try{const j=await api("login",{u:cleanU,p:cleanP});if(!j.ok)throw new Error(j.error);
       AUTH={token:j.token,user:j.user};store.set("auth",AUTH);progress={};store.set("progress",{});showUser();$("#lessonSel").hidden=false;home();refreshMe()}
     catch(err){$("#lgErr").textContent=err.message==="Failed to fetch"?"Không kết nối được máy chủ. Em kiểm tra mạng rồi thử lại.":(err.message||"Lỗi, thử lại nhé.");b.disabled=false}}}
 
