@@ -104,7 +104,7 @@ function openLesson(id){
   ${hanziHTML(d)}
   <section class="sec" id="trochoi"><h2><span class="zh">游戏</span>Trò chơi ôn từ mới</h2>
     <div class="games"><h3>${d.vocab.length} từ mới của bài ${id}</h3>
-      <div class="gtabs" id="gtabs"><button type="button" data-g="flash" aria-pressed="true">Thẻ ghi nhớ</button><button type="button" data-g="memory" aria-pressed="false">Lật thẻ ghép đôi</button><button type="button" data-g="quiz" aria-pressed="false">Thử thách 60 giây</button><button type="button" data-g="listen" aria-pressed="false">Nghe chọn chữ</button></div>
+      <div class="gtabs" id="gtabs"><button type="button" data-g="flash" aria-pressed="true">Thẻ ghi nhớ</button><button type="button" data-g="memory" aria-pressed="false">Lật thẻ ghép đôi</button><button type="button" data-g="quiz" aria-pressed="false">Thử thách 60 giây</button><button type="button" data-g="listen" aria-pressed="false">Nghe chọn chữ</button>${(window.VocabGames?VocabGames.list:[]).map(([k,n])=>`<button type="button" data-g="${k}" aria-pressed="false">${n}</button>`).join("")}</div>
       <div class="gstage" id="gstage"></div></div></section>
   <section class="sec" id="hoibai"><h2><span class="zh">提问</span>Hỏi bài cô giáo</h2>
     <div class="homeask" style="padding-bottom:0">${askBlock(d)}${qaBlock(d)}</div></section>
@@ -339,7 +339,7 @@ function examBar(k,d){const isL=k==="L",n=d.l1.ans.length,{q,min}=readMin(d);
 function mmss(t){t=Math.max(0,Math.ceil(t));return (t/60|0)+":"+String(t%60).padStart(2,"0")}
 function pill(txt,warn){let p=$("#xpill");if(!p){p=document.createElement("button");p.id="xpill";p.type="button";p.className="pill";document.body.appendChild(p);p.onclick=()=>document.getElementById(EX.active==="L"?"nghe":"doc")?.scrollIntoView()}
   p.hidden=!txt;p.textContent=txt||"";p.classList.toggle("warn",!!warn)}
-function stopExam(){clearInterval(EX.timer);EX.timer=null;if(EX.active==="L"){aud.onended=null;aud.onpause=null;aud.pause()}EX.active=null;pill("")}
+function stopExam(){window.VocabGames&&VocabGames.stop();clearInterval(gameTimer);clearInterval(EX.timer);EX.timer=null;if(EX.active==="L"){aud.onended=null;aud.onpause=null;aud.pause()}EX.active=null;pill("")}
 function startExam(k,d){
   const st=$("#st"+k);
   if(EX.active){st.innerHTML=`<span>Em đang làm bài thi ${EX.active==="L"?"nghe":"đọc"}. Nộp bài đó trước rồi mới bắt đầu bài này.</span>`;return}
@@ -429,7 +429,8 @@ function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.rando
 let gameTimer=null;
 function initGames(d){
   const st=$("#gstage"),V=d.vocab;
-  const show=g=>{clearInterval(gameTimer);$$("#gtabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.g===g));({flash,memory,quiz:()=>quiz(false),listen:()=>quiz(true)})[g]()};
+  const show=g=>{clearInterval(gameTimer);window.VocabGames&&VocabGames.stop();$$("#gtabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.g===g));
+    const base={flash,memory,quiz:()=>quiz(false),listen:()=>quiz(true)};base[g]?base[g]():VocabGames.run(g,st,V,{say,store,key:"best:"+d.id})};
   $$("#gtabs button").forEach(b=>b.onclick=()=>show(b.dataset.g));
   function flash(){let i=0;const draw=()=>{const w=V[i];st.innerHTML=`<div class="flash">
       <button class="card3d" type="button" id="fc" aria-label="Lật thẻ"><div class="inner"><div class="face"><span class="hz">${esc(w[0])}</span><span class="note">Chạm để lật</span></div>
