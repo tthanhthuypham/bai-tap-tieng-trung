@@ -71,6 +71,8 @@ function hash_(salt, pw) {
   const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + pw, Utilities.Charset.UTF_8);
   return raw.map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
 }
+function active_(r) { return String(r.active).trim().toLowerCase() !== 'false'; }
+function activeStudents_() { return rows_('students').filter(active_); }
 function uid_() { return Utilities.getUuid().replace(/-/g, ''); }
 function now_() { return new Date().toISOString(); }
 function locked_(fn) {
@@ -81,8 +83,8 @@ function clean_(s, max) { return String(s == null ? '' : s).slice(0, max || 2000
 
 function student_(token) {
   if (!token) throw new Error('Em cần đăng nhập lại.');
-  const s = rows_('students').find(r => r.token === token);
-  if (!s || String(s.active) === 'false') throw new Error('Phiên đăng nhập đã hết hạn, em đăng nhập lại nhé.');
+  const s = activeStudents_().find(r => r.token === token);
+  if (!s) throw new Error('Phiên đăng nhập đã hết hạn, em đăng nhập lại nhé.');
   if (new Date(s.tokenExp) < new Date()) throw new Error('Phiên đăng nhập đã hết hạn, em đăng nhập lại nhé.');
   return s;
 }
@@ -119,8 +121,8 @@ const API = {
   login(q) {
     return locked_(() => {
       const u = clean_(q.u, 60).trim().toLowerCase();
-      const s = rows_('students').find(r => String(r.username).toLowerCase() === u);
-      if (!s || String(s.active) === 'false' || hash_(s.salt, clean_(q.p, 100)) !== s.hash) return { ok: false, error: 'Sai tên đăng nhập hoặc mật khẩu.' };
+      const s = activeStudents_().find(r => String(r.username).toLowerCase() === u);
+      if (!s || hash_(s.salt, clean_(q.p, 100)) !== s.hash) return { ok: false, error: 'Sai tên đăng nhập hoặc mật khẩu.' };
       const token = uid_(), exp = new Date(Date.now() + TOKEN_DAYS * 864e5).toISOString();
       set_('students', s._row, { token: token, tokenExp: exp, lastSeen: now_() });
       return { ok: true, token: token, user: { u: s.username, name: s.name, cls: s.class } };
@@ -199,7 +201,7 @@ const API = {
   },
   adminOverview(q) {
     admin_(q.token);
-    const students = rows_('students').filter(r => String(r.active) !== 'false')
+    const students = activeStudents_()
       .map(r => ({ u: r.username, name: r.name, cls: r.class, created: r.created, lastSeen: r.lastSeen }));
     const best = bestProgress_(null), progress = {};
     Object.keys(best).forEach(k => {
@@ -214,7 +216,7 @@ const API = {
     admin_(q.token);
     const list = (q.students || []).slice(0, 300);
     return locked_(() => {
-      const existing = new Set(rows_('students').filter(r => String(r.active) !== 'false').map(r => String(r.username).toLowerCase()));
+      const existing = new Set(activeStudents_().map(r => String(r.username).toLowerCase()));
       const made = [], errors = [];
       list.forEach((it, idx) => {
         const name = clean_(it.name, 100).trim(); if (!name) return;
@@ -231,7 +233,7 @@ const API = {
         if (!pw) pw = pin_();
         existing.add(u);
         const salt = uid_();
-        append_('students', { username: u, name: name, class: clean_(it.cls, 50), salt: salt, hash: hash_(salt, pw), created: now_(), active: true });
+        append_('students', { username: u, name: name, class: clean_(it.cls, 50), salt: salt, hash: hash_(salt, pw), created: now_(), active: 'yes' });
         made.push({ u: u, name: name, cls: clean_(it.cls, 50), p: pw });
       });
       return { ok: true, created: made, errors: errors };
@@ -242,10 +244,10 @@ const API = {
     const nu = clean_(q.newU, 40).trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(nu)) return { ok: false, error: 'Tên đăng nhập chỉ được dùng chữ không dấu, số, dấu chấm, gạch ngang, gạch dưới (3–30 ký tự).' };
     return locked_(() => {
-      const all = rows_('students');
-      const s = all.find(r => r.username === q.u && String(r.active) !== 'false');
+      const all = activeStudents_();
+      const s = all.find(r => r.username === q.u);
       if (!s) return { ok: false, error: 'Không tìm thấy học sinh.' };
-      if (all.some(r => String(r.username).toLowerCase() === nu && String(r.active) !== 'false' && r._row !== s._row)) return { ok: false, error: 'Tên đăng nhập "' + nu + '" đã có người dùng.' };
+      if (all.some(r => String(r.username).toLowerCase() === nu && r._row !== s._row)) return { ok: false, error: 'Tên đăng nhập "' + nu + '" đã có người dùng.' };
       set_('students', s._row, { username: nu });
       ['progress', 'questions', 'records'].forEach(name => rows_(name).forEach(r => { if (r.username === q.u) set_(name, r._row, { username: nu }); }));
       return { ok: true, u: nu };
@@ -254,7 +256,7 @@ const API = {
   adminReset(q) {
     admin_(q.token);
     return locked_(() => {
-      const s = rows_('students').find(r => r.username === q.u);
+      const s = activeStudents_().find(r => r.username === q.u);
       if (!s) return { ok: false, error: 'Không tìm thấy học sinh.' };
       const pw = pin_(), salt = uid_();
       set_('students', s._row, { salt: salt, hash: hash_(salt, pw), token: '' });
@@ -264,9 +266,9 @@ const API = {
   adminDelete(q) {
     admin_(q.token);
     return locked_(() => {
-      const s = rows_('students').find(r => r.username === q.u);
+      const s = activeStudents_().find(r => r.username === q.u);
       if (!s) return { ok: false, error: 'Không tìm thấy học sinh.' };
-      set_('students', s._row, { active: false, token: '' });
+      set_('students', s._row, { active: 'false', token: '' });
       return { ok: true };
     });
   },
