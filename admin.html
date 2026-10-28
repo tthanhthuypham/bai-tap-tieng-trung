@@ -104,7 +104,14 @@ textarea{width:100%;min-height:150px;resize:vertical}
 .lbox label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--muted)}
 .err{color:var(--seal);font-weight:600;min-height:1.2em}
 .empty{color:var(--muted);padding:8px 0}
+.stack{display:grid;gap:0}
 .printcards{display:none}
+.ctab td{padding:4px}.ctab input{width:100%;min-width:140px;padding:7px 8px}.ctab input.w-s{min-width:70px;width:90px}.ctab input.w-m{min-width:120px}
+.ctab tr.bad input{border-color:var(--seal)}.rerr{color:var(--seal);font-size:12.5px;font-weight:600}
+.lnk{border:0;background:none;color:var(--sky);font-weight:700;padding:2px 4px;font-size:12.5px}
+.cerr{margin-top:12px;padding:12px;border-radius:12px;background:var(--seal-soft);font-size:13.5px}.cerr ul{margin:6px 0 0;padding-left:18px}
+.renin{width:150px;font-family:ui-monospace,Menlo,monospace}
+.row .sp{flex:1}
 @media print{
   body{background:#fff;color:#000}
   .top,.stats,.tabs,.panel,footer{display:none!important}
@@ -201,30 +208,76 @@ function showDetail(){const box=$("#detail");if(!box||!SEL)return;const [u,l]=SE
   box.innerHTML=`<div class="detail"><h3>${esc(s.name)} · Bài ${l}</h3><div class="parts">${PARTS.map(([k,n])=>{const v=p[k];if(!v)return `<div class="part none"><b>${n}</b><span>chưa làm</span></div>`;
     const ok=+v[0]===+v[1];return `<div class="part ${ok?"ok":"bad"}"><b>${n}</b><span>${k==="dict"?v[0]+"%":v[0]+"/"+v[1]}</span><div class="note">${v[3]||1} lần · ${fmt(v[2])}</div></div>`}).join("")}</div></div>`}
 
-function tabStudents(){const S=students();
-  $("#tab").innerHTML=`<div class="two">
+let ROWS=null;
+const blankRow=()=>({name:"",cls:"",u:"",p:""});
+function slugJS(name){const w=String(name).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase().replace(/[^a-z\s]/g," ").trim().split(/\s+/).filter(Boolean);
+  if(!w.length)return "";return w[w.length-1]+w.slice(0,-1).map(x=>x[0]).join("")}
+const U_OK=/^[a-z0-9][a-z0-9._-]{2,29}$/;
+function rowErrors(){const taken=new Set(DATA.students.map(s=>String(s.u).toLowerCase())),seen={};
+  return ROWS.map(r=>{if(!r.name.trim())return (r.u||r.p||r.cls)?"Thiếu họ tên":"";const u=(r.u.trim()||"").toLowerCase();
+    if(u){if(!U_OK.test(u))return "Tên đăng nhập chỉ dùng chữ không dấu, số, . - _ (3–30 ký tự)";if(taken.has(u))return "Tên đăng nhập đã có người dùng";if(seen[u])return "Trùng tên đăng nhập với dòng khác";seen[u]=1}
+    if(r.p&&r.p.length<4)return "Mật khẩu cần ít nhất 4 ký tự";return ""})}
+function tabStudents(){const S=students();if(!ROWS)ROWS=Array.from({length:5},blankRow);
+  $("#tab").innerHTML=`<div class="stack">
     <div class="panel"><div class="ph"><h2>Tạo tài khoản</h2></div>
-      <p class="note">Mỗi dòng một học sinh. Có thể thêm lớp sau dấu phẩy, ví dụ: <b>Nguyễn Văn An, 2A</b></p>
-      <textarea id="names" placeholder="Nguyễn Văn An, 2A&#10;Trần Thị Bình, 2A&#10;Lê Minh Châu, 2B"></textarea>
+      <p class="note">Cô điền họ tên và tự đặt <b>tên đăng nhập</b> cho từng em. Ô nào để trống thì trang tự tạo: tên đăng nhập theo tên em, mật khẩu là 6 chữ số. Có thể dán cả bảng từ Excel/Google Sheets (theo thứ tự cột: Họ tên, Lớp, Tên đăng nhập, Mật khẩu).</p>
+      <div class="scroll"><table class="ctab"><thead><tr><th>#</th><th>Họ tên</th><th>Lớp</th><th>Tên đăng nhập</th><th>Mật khẩu</th><th></th></tr></thead><tbody id="ctb"></tbody></table></div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost sm" type="button" id="addrow">+ Thêm dòng</button><button class="btn ghost sm" type="button" id="add10">+ 10 dòng</button><span class="sp"></span></div>
       <div class="row" style="margin-top:10px"><button class="btn seal" type="button" id="create">Tạo tài khoản</button><span class="note" id="cmsg"></span></div>
-      <div id="creds"></div></div>
+      <div id="cerr"></div><div id="creds"></div></div>
     <div class="panel"><div class="ph"><h2>Danh sách học sinh (${DATA.students.length})</h2>${clsFilter()}</div>
       ${S.length?`<div class="scroll"><table><thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Lớp</th><th>Vào lần cuối</th><th></th></tr></thead><tbody>
-      ${S.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td class="pw">${esc(s.u)}</td><td>${esc(s.cls||"")}</td><td>${ago(s.lastSeen)}</td>
+      ${S.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td class="pw"><span class="uview">${esc(s.u)} <button class="lnk" type="button" data-ren="${esc(s.u)}">Đổi</button></span></td><td>${esc(s.cls||"")}</td><td>${ago(s.lastSeen)}</td>
         <td><div class="row"><button class="btn ghost sm" type="button" data-reset="${esc(s.u)}">Cấp lại mật khẩu</button><button class="btn ghost sm" type="button" data-del="${esc(s.u)}">Xóa</button></div></td></tr>`).join("")}</tbody></table></div>`:`<p class="empty">Chưa có học sinh nào.</p>`}
-      <p class="note" style="margin-top:10px">Mật khẩu được mã hóa nên không xem lại được. Em nào quên mật khẩu, cô bấm “Cấp lại mật khẩu”.</p></div></div>`;
-  wireCls();showCreds();
-  $("#create").onclick=async()=>{const list=$("#names").value.split("\n").map(x=>x.trim()).filter(Boolean).map(x=>{const [n,...c]=x.split(",");return {name:n.trim(),cls:c.join(",").trim()}});
-    if(!list.length){$("#cmsg").textContent="Cô nhập tên học sinh trước nhé.";return}
+      <p class="note" style="margin-top:10px">Mật khẩu được mã hóa nên không xem lại được. Em nào quên mật khẩu, cô bấm “Cấp lại mật khẩu”. Bấm “Đổi” cạnh tên đăng nhập để đổi tên, điểm cũ của em vẫn giữ nguyên.</p></div></div>`;
+  wireCls();showCreds();drawRows();
+  $("#addrow").onclick=()=>{ROWS.push(blankRow());drawRows(ROWS.length-1)};
+  $("#add10").onclick=()=>{for(let i=0;i<10;i++)ROWS.push(blankRow());drawRows()};
+  $("#create").onclick=async()=>{const errs=rowErrors();const list=ROWS.map((r,i)=>({...r,i})).filter(r=>r.name.trim());
+    if(!list.length){$("#cmsg").textContent="Cô nhập họ tên học sinh trước nhé.";return}
+    if(errs.some(Boolean)){$("#cmsg").textContent="Còn dòng chưa hợp lệ (tô đỏ), cô sửa giúp nhé.";markErrors();return}
     const b=$("#create");b.disabled=true;$("#cmsg").textContent="Đang tạo…";
-    try{const j=await api("adminCreate",{students:list});if(!j.ok)throw new Error(j.error);LAST_CREATED=j.created;$("#names").value="";
-      j.created.forEach(c=>DATA.students.push({u:c.u,name:c.name,cls:c.cls,lastSeen:""}));render()}
+    try{const j=await api("adminCreate",{students:list.map(r=>({name:r.name.trim(),cls:r.cls.trim(),u:r.u.trim().toLowerCase(),p:r.p}))});if(!j.ok)throw new Error(j.error);
+      LAST_CREATED=j.created;j.created.forEach(c=>DATA.students.push({u:c.u,name:c.name,cls:c.cls,lastSeen:""}));
+      const bad=new Set((j.errors||[]).map(e=>e.line-1));ROWS=list.filter((r,k)=>bad.has(k)).map(({i,...r})=>r);if(!ROWS.length)ROWS=Array.from({length:5},blankRow);
+      render();if(j.errors&&j.errors.length){$("#cerr").innerHTML=`<div class="cerr"><b>Chưa tạo được ${j.errors.length} em</b> (vẫn còn trong bảng để cô sửa):<ul>${j.errors.map(e=>`<li>${esc(e.error)}</li>`).join("")}</ul></div>`}}
     catch(e){$("#cmsg").textContent=e.message;b.disabled=false}};
   $$("[data-reset]").forEach(b=>b.onclick=async()=>{if(!b.dataset.sure){b.dataset.sure=1;b.textContent="Bấm lần nữa để cấp lại";return}
     b.disabled=true;try{const j=await api("adminReset",{u:b.dataset.reset});if(!j.ok)throw new Error(j.error);LAST_CREATED=[{u:j.u,name:j.name,p:j.p,cls:""}];showCreds("Mật khẩu mới")}catch(e){b.textContent=e.message}});
   $$("[data-del]").forEach(b=>b.onclick=async()=>{if(!b.dataset.sure){b.dataset.sure=1;b.textContent="Bấm lần nữa để xóa";return}
     b.disabled=true;try{const j=await api("adminDelete",{u:b.dataset.del});if(!j.ok)throw new Error(j.error);DATA.students=DATA.students.filter(s=>s.u!==b.dataset.del);render()}catch(e){b.textContent=e.message}});
+  $$("[data-ren]").forEach(b=>b.onclick=()=>{const old=b.dataset.ren,cell=b.closest("td");
+    cell.innerHTML=`<div class="row"><input class="renin" id="ren-${esc(old)}" value="${esc(old)}" aria-label="Tên đăng nhập mới" autocapitalize="off" spellcheck="false"><button class="btn jade sm" type="button">Lưu</button><button class="btn ghost sm" type="button">Hủy</button></div><div class="rerr"></div>`;
+    const inp=cell.querySelector("input"),[sv,cn]=cell.querySelectorAll("button"),er=cell.querySelector(".rerr");inp.focus();inp.select();
+    cn.onclick=()=>render();
+    const go=async()=>{const nu=inp.value.trim().toLowerCase();if(nu===old)return render();if(!U_OK.test(nu)){er.textContent="Chỉ dùng chữ không dấu, số, . - _ (3–30 ký tự)";return}
+      sv.disabled=true;try{const j=await api("adminRename",{u:old,newU:nu});if(!j.ok)throw new Error(j.error);
+        const st=DATA.students.find(x=>x.u===old);if(st)st.u=j.u;if(DATA.progress[old]){DATA.progress[j.u]=DATA.progress[old];delete DATA.progress[old]}
+        DATA.questions.forEach(q=>{if(q.u===old)q.u=j.u});DATA.records.forEach(r=>{if(r.u===old)r.u=j.u});render()}
+      catch(e){er.textContent=e.message;sv.disabled=false}};
+    sv.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go();if(e.key==="Escape")render()}});
 }
+function drawRows(focusRow){const tb=$("#ctb");if(!tb)return;
+  tb.innerHTML=ROWS.map((r,i)=>`<tr data-row="${i}"><td class="note">${i+1}</td>
+    <td><input id="c-${i}-name" data-r="${i}" data-f="name" value="${esc(r.name)}" placeholder="Nguyễn Văn An"></td>
+    <td><input id="c-${i}-cls" data-r="${i}" data-f="cls" value="${esc(r.cls)}" placeholder="2A" class="w-s"></td>
+    <td><input id="c-${i}-u" data-r="${i}" data-f="u" value="${esc(r.u)}" placeholder="${esc(slugJS(r.name)||"vd: an.nguyen")}" autocapitalize="off" spellcheck="false" class="w-m"></td>
+    <td><input id="c-${i}-p" data-r="${i}" data-f="p" value="${esc(r.p)}" placeholder="tự tạo" class="w-s"></td>
+    <td><button class="lnk" type="button" data-rm="${i}" aria-label="Xóa dòng ${i+1}">✕</button></td></tr>
+    <tr class="errrow" data-err="${i}" hidden><td></td><td colspan="5" class="rerr"></td></tr>`).join("");
+  $$("#ctb input").forEach(inp=>{
+    inp.oninput=()=>{ROWS[+inp.dataset.r][inp.dataset.f]=inp.value;if(inp.dataset.f==="name"){const u=$(`#c-${inp.dataset.r}-u`);if(u)u.placeholder=slugJS(inp.value)||"vd: an.nguyen"}};
+    inp.addEventListener("blur",markErrors);
+    inp.onpaste=e=>{const t=(e.clipboardData||window.clipboardData).getData("text");if(!/[\t\n]/.test(t))return;e.preventDefault();
+      const F=["name","cls","u","p"],r0=+inp.dataset.r,f0=F.indexOf(inp.dataset.f);
+      t.replace(/\r/g,"").split("\n").filter(l=>l.trim()).forEach((line,k)=>{const cells=line.split(/\t|\s*,\s*/);if(!ROWS[r0+k])ROWS[r0+k]=blankRow();
+        cells.forEach((v,j)=>{if(F[f0+j])ROWS[r0+k][F[f0+j]]=v.trim()})});drawRows()}});
+  $$("[data-rm]").forEach(b=>b.onclick=()=>{ROWS.splice(+b.dataset.rm,1);if(!ROWS.length)ROWS.push(blankRow());drawRows()});
+  markErrors(true);
+  if(focusRow!=null){const f=$(`#c-${focusRow}-name`);if(f)f.focus()}
+}
+function markErrors(quiet){const errs=rowErrors();ROWS.forEach((r,i)=>{const tr=$(`#ctb tr[data-row="${i}"]`),er=$(`#ctb tr[data-err="${i}"]`);if(!tr)return;
+  const show=errs[i]&&!(quiet===true&&!r.u&&!r.p);tr.classList.toggle("bad",!!show);er.hidden=!show;er.lastElementChild.textContent=show?errs[i]:""})}
 function showCreds(title){const box=$("#creds");if(!box||!LAST_CREATED.length)return;
   const url=location.href.replace(/admin\.html.*$/,"");
   box.innerHTML=`<div class="creds"><h3>${title||"Tài khoản vừa tạo"} · cô lưu lại ngay, sau này không xem lại mật khẩu được</h3>

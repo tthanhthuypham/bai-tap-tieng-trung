@@ -212,20 +212,43 @@ const API = {
   },
   adminCreate(q) {
     admin_(q.token);
-    const list = (q.students || []).slice(0, 200);
+    const list = (q.students || []).slice(0, 300);
     return locked_(() => {
-      const existing = new Set(rows_('students').map(r => String(r.username).toLowerCase()));
-      const made = [];
-      list.forEach(it => {
+      const existing = new Set(rows_('students').filter(r => String(r.active) !== 'false').map(r => String(r.username).toLowerCase()));
+      const made = [], errors = [];
+      list.forEach((it, idx) => {
         const name = clean_(it.name, 100).trim(); if (!name) return;
-        let base = slug_(name), u = base, i = 2;
-        while (existing.has(u)) u = base + (i++);
+        let u = clean_(it.u, 40).trim().toLowerCase();
+        if (u) {
+          if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(u)) { errors.push({ line: idx + 1, name: name, error: 'Tên đăng nhập "' + u + '" chỉ được dùng chữ không dấu, số, dấu chấm, gạch ngang, gạch dưới (3–30 ký tự).' }); return; }
+          if (existing.has(u)) { errors.push({ line: idx + 1, name: name, error: 'Tên đăng nhập "' + u + '" đã có người dùng.' }); return; }
+        } else {
+          const base = slug_(name); let i = 2; u = base;
+          while (existing.has(u)) u = base + (i++);
+        }
+        let pw = clean_(it.p, 100);
+        if (pw && pw.length < 4) { errors.push({ line: idx + 1, name: name, error: 'Mật khẩu của ' + name + ' cần ít nhất 4 ký tự.' }); return; }
+        if (!pw) pw = pin_();
         existing.add(u);
-        const pw = pin_(), salt = uid_();
+        const salt = uid_();
         append_('students', { username: u, name: name, class: clean_(it.cls, 50), salt: salt, hash: hash_(salt, pw), created: now_(), active: true });
         made.push({ u: u, name: name, cls: clean_(it.cls, 50), p: pw });
       });
-      return { ok: true, created: made };
+      return { ok: true, created: made, errors: errors };
+    });
+  },
+  adminRename(q) {
+    admin_(q.token);
+    const nu = clean_(q.newU, 40).trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(nu)) return { ok: false, error: 'Tên đăng nhập chỉ được dùng chữ không dấu, số, dấu chấm, gạch ngang, gạch dưới (3–30 ký tự).' };
+    return locked_(() => {
+      const all = rows_('students');
+      const s = all.find(r => r.username === q.u && String(r.active) !== 'false');
+      if (!s) return { ok: false, error: 'Không tìm thấy học sinh.' };
+      if (all.some(r => String(r.username).toLowerCase() === nu && String(r.active) !== 'false' && r._row !== s._row)) return { ok: false, error: 'Tên đăng nhập "' + nu + '" đã có người dùng.' };
+      set_('students', s._row, { username: nu });
+      ['progress', 'questions', 'records'].forEach(name => rows_(name).forEach(r => { if (r.username === q.u) set_(name, r._row, { username: nu }); }));
+      return { ok: true, u: nu };
     });
   },
   adminReset(q) {
